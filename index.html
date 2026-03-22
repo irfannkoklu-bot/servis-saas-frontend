@@ -281,6 +281,67 @@
         font-size: 15px;
       }
     }
+
+    @media (max-width: 768px) {
+      #materialsTable thead {
+        display: none;
+      }
+
+      #materialsTable,
+      #materialsTable tbody,
+      #materialsTable tr,
+      #materialsTable td {
+        display: block;
+        width: 100%;
+      }
+
+      #materialsTable tr {
+        margin-bottom: 12px;
+        border: 1px solid #ddd;
+        border-radius: 10px;
+        padding: 10px;
+        background: #fff;
+      }
+
+      #materialsTable td {
+        border: none;
+        padding: 6px 0;
+      }
+
+      #materialsTable td::before {
+        font-weight: bold;
+        display: block;
+        margin-bottom: 4px;
+        font-size: 12px;
+        color: #555;
+      }
+
+      #materialsTable td:nth-child(1)::before { content: "Malzeme"; }
+      #materialsTable td:nth-child(2)::before { content: "Seri No"; }
+      #materialsTable td:nth-child(3)::before { content: "Miktar"; }
+      #materialsTable td:nth-child(4)::before { content: "Birim"; }
+      #materialsTable td:nth-child(5)::before { content: "Birim Fiyat"; }
+      #materialsTable td:nth-child(6)::before { content: "Toplam"; }
+      #materialsTable td:nth-child(7)::before { content: "Sil"; }
+
+      #materialsTable input {
+        width: 100%;
+      }
+
+      .table-actions {
+        width: 100%;
+      }
+
+      .totals {
+        max-width: 100%;
+      }
+
+      .totals .row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+      }
+    }
   </style>
 </head>
 <body>
