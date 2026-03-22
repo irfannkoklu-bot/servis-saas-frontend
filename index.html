@@ -357,7 +357,7 @@
         </div>
         <div class="actions">
           <button class="btn-secondary" type="button" id="saveFirmBtn">Firmayı Kaydet</button>
-          <button class="btn-secondary" type="button" id="clearFirmBtn">Kayıtlı Firmaları Temizle</button>
+          <button class="btn-secondary" type="button" id="clearFirmBtn">Tüm Firmaları Sil</button>
         </div>
       </div>
     </div>
@@ -577,10 +577,14 @@
     </form>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
   <script>
     const API_URL = "https://servis-saas.onrender.com/api/pdf";
-    const FIRMS_KEY = "mono_cnc_firms";
+
+    const SUPABASE_URL = "https://tswwqqzjzbyfobolznkt.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_eq4IjDxfBLX18LBXX7Db0g_1jdJPiDV";
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     const materialsTableBody = document.querySelector("#materialsTable tbody");
     const totalMaterialsText = document.getElementById("totalMaterialsText");
@@ -595,6 +599,8 @@
     const serviceCanvas = document.getElementById("serviceSig");
     const companyPad = new SignaturePad(companyCanvas);
     const servicePad = new SignaturePad(serviceCanvas);
+
+    let firmsCache = [];
 
     function showStatus(message, type = "success") {
       statusBox.className = "status " + type;
@@ -680,76 +686,101 @@
       document.getElementById(id).addEventListener("input", calculateTotals);
     });
 
-    function getSavedFirms() {
-      return JSON.parse(localStorage.getItem(FIRMS_KEY) || "[]");
-    }
+    async function loadFirms() {
+      const { data, error } = await supabase
+        .from("firms")
+        .select("*")
+        .order("company_name", { ascending: true });
 
-    function setSavedFirms(firms) {
-      localStorage.setItem(FIRMS_KEY, JSON.stringify(firms));
+      if (error) {
+        showStatus("Firmalar yüklenemedi: " + error.message, "error");
+        return;
+      }
+
+      firmsCache = data || [];
+      fillFirmSelect();
     }
 
     function fillFirmSelect() {
-      const firms = getSavedFirms();
       savedFirmSelect.innerHTML = '<option value="">Firma seçin</option>';
 
-      firms.forEach((firm, index) => {
+      firmsCache.forEach((firm) => {
         const option = document.createElement("option");
-        option.value = index;
-        option.textContent = firm.companyName;
+        option.value = firm.id;
+        option.textContent = firm.company_name;
         savedFirmSelect.appendChild(option);
       });
     }
 
     function getFirmFormData() {
       return {
-        companyName: document.getElementById("companyName").value,
-        companyAddress: document.getElementById("companyAddress").value,
-        taxOffice: document.getElementById("taxOffice").value,
-        taxNumber: document.getElementById("taxNumber").value,
-        customerEmail: document.getElementById("customerEmail").value,
-        customerCode: document.getElementById("customerCode").value
+        company_name: document.getElementById("companyName").value,
+        company_address: document.getElementById("companyAddress").value,
+        tax_office: document.getElementById("taxOffice").value,
+        tax_number: document.getElementById("taxNumber").value,
+        customer_email: document.getElementById("customerEmail").value,
+        customer_code: document.getElementById("customerCode").value
       };
     }
 
-    document.getElementById("saveFirmBtn").addEventListener("click", () => {
+    document.getElementById("saveFirmBtn").addEventListener("click", async () => {
       const firm = getFirmFormData();
-      if (!firm.companyName.trim()) {
+
+      if (!firm.company_name.trim()) {
         showStatus("Önce firma ünvanı gir.", "error");
         return;
       }
 
-      const firms = getSavedFirms();
-      const existingIndex = firms.findIndex(f => f.companyName.toLowerCase() === firm.companyName.toLowerCase());
+      const existing = firmsCache.find(
+        f => f.company_name.toLowerCase() === firm.company_name.toLowerCase()
+      );
 
-      if (existingIndex >= 0) {
-        firms[existingIndex] = firm;
-      } else {
-        firms.push(firm);
+      if (existing) {
+        showStatus("Bu firma zaten kayıtlı. Şimdilik aynı isimle ikinci kayıt eklenmiyor.", "error");
+        return;
       }
 
-      setSavedFirms(firms);
-      fillFirmSelect();
-      showStatus("Firma kaydedildi.");
+      const { error } = await supabase
+        .from("firms")
+        .insert([firm]);
+
+      if (error) {
+        showStatus("Firma kaydedilemedi: " + error.message, "error");
+        return;
+      }
+
+      await loadFirms();
+      showStatus("Firma Supabase'e kaydedildi.");
     });
 
-    document.getElementById("clearFirmBtn").addEventListener("click", () => {
+    document.getElementById("clearFirmBtn").addEventListener("click", async () => {
       if (!confirm("Tüm kayıtlı firmaları silmek istiyor musun?")) return;
-      localStorage.removeItem(FIRMS_KEY);
+
+      const { error } = await supabase
+        .from("firms")
+        .delete()
+        .neq("id", "00000000-0000-0000-0000-000000000000");
+
+      if (error) {
+        showStatus("Firmalar silinemedi: " + error.message, "error");
+        return;
+      }
+
+      firmsCache = [];
       fillFirmSelect();
-      showStatus("Kayıtlı firmalar temizlendi.");
+      showStatus("Tüm firmalar silindi.");
     });
 
     savedFirmSelect.addEventListener("change", () => {
-      const firms = getSavedFirms();
-      const selected = firms[savedFirmSelect.value];
+      const selected = firmsCache.find(f => f.id === savedFirmSelect.value);
       if (!selected) return;
 
-      document.getElementById("companyName").value = selected.companyName || "";
-      document.getElementById("companyAddress").value = selected.companyAddress || "";
-      document.getElementById("taxOffice").value = selected.taxOffice || "";
-      document.getElementById("taxNumber").value = selected.taxNumber || "";
-      document.getElementById("customerEmail").value = selected.customerEmail || "";
-      document.getElementById("customerCode").value = selected.customerCode || "";
+      document.getElementById("companyName").value = selected.company_name || "";
+      document.getElementById("companyAddress").value = selected.company_address || "";
+      document.getElementById("taxOffice").value = selected.tax_office || "";
+      document.getElementById("taxNumber").value = selected.tax_number || "";
+      document.getElementById("customerEmail").value = selected.customer_email || "";
+      document.getElementById("customerCode").value = selected.customer_code || "";
     });
 
     function getCheckedValues(name) {
@@ -870,7 +901,7 @@
     });
 
     addMaterialRow();
-    fillFirmSelect();
+    loadFirms();
     calculateTotals();
   </script>
 </body>
