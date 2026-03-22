@@ -508,7 +508,7 @@
 
       <div class="card">
         <div class="actions">
-          <button type="submit" class="btn-primary">PDF Oluştur ve Gönder</button>
+          <button type="submit" class="btn-primary" id="submitBtn">PDF Oluştur ve İndir</button>
           <button type="button" class="btn-secondary" id="previewDataBtn">Form Verisini Kontrol Et</button>
         </div>
         <div id="statusBox" class="status"></div>
@@ -528,6 +528,7 @@
     const grandTotalText = document.getElementById("grandTotalText");
     const savedFirmSelect = document.getElementById("savedFirmSelect");
     const statusBox = document.getElementById("statusBox");
+    const submitBtn = document.getElementById("submitBtn");
 
     const companyCanvas = document.getElementById("companySig");
     const serviceCanvas = document.getElementById("serviceSig");
@@ -756,6 +757,8 @@
     document.getElementById("serviceForm").addEventListener("submit", async (e) => {
       e.preventDefault();
 
+      const originalText = submitBtn.textContent;
+
       try {
         calculateTotals();
 
@@ -766,6 +769,10 @@
           return;
         }
 
+        submitBtn.disabled = true;
+        submitBtn.textContent = "PDF hazırlanıyor...";
+        showStatus("PDF hazırlanıyor, lütfen bekleyin...", "success");
+
         const response = await fetch(API_URL, {
           method: "POST",
           headers: {
@@ -774,16 +781,30 @@
           body: JSON.stringify(payload)
         });
 
-        const resultText = await response.text();
-
         if (!response.ok) {
-          throw new Error(resultText || "Bir hata oluştu.");
+          const errorText = await response.text();
+          throw new Error(errorText || "Bir hata oluştu.");
         }
 
-        showStatus(resultText, "success");
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+
+        const downloadLink = document.createElement("a");
+        downloadLink.href = url;
+        downloadLink.download = `servis-raporu-${Date.now()}.pdf`;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        downloadLink.remove();
+
+        window.URL.revokeObjectURL(url);
+
+        showStatus("PDF başarıyla oluşturuldu ve indirildi.", "success");
       } catch (error) {
         console.error(error);
         showStatus("Hata: " + error.message, "error");
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
       }
     });
 
