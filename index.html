@@ -597,8 +597,16 @@
 
     const companyCanvas = document.getElementById("companySig");
     const serviceCanvas = document.getElementById("serviceSig");
-    const companyPad = new SignaturePad(companyCanvas);
-    const servicePad = new SignaturePad(serviceCanvas);
+    const companyPad = new SignaturePad(companyCanvas, {
+      minWidth: 1,
+      maxWidth: 2.5,
+      penColor: "#111"
+    });
+    const servicePad = new SignaturePad(serviceCanvas, {
+      minWidth: 1,
+      maxWidth: 2.5,
+      penColor: "#111"
+    });
 
     let firmsCache = [];
 
@@ -613,10 +621,18 @@
 
     function resizeCanvas(canvas, pad) {
       const ratio = Math.max(window.devicePixelRatio || 1, 1);
+      const tempData = pad.isEmpty() ? null : pad.toData();
+
       canvas.width = canvas.offsetWidth * ratio;
       canvas.height = canvas.offsetHeight * ratio;
-      canvas.getContext("2d").scale(ratio, ratio);
+
+      const ctx = canvas.getContext("2d");
+      ctx.scale(ratio, ratio);
       pad.clear();
+
+      if (tempData) {
+        pad.fromData(tempData);
+      }
     }
 
     function resizeAllCanvases() {
@@ -624,8 +640,28 @@
       resizeCanvas(serviceCanvas, servicePad);
     }
 
+    [companyCanvas, serviceCanvas].forEach((canvas) => {
+      canvas.style.touchAction = "none";
+
+      canvas.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+      }, { passive: false });
+
+      canvas.addEventListener("touchmove", (e) => {
+        e.preventDefault();
+      }, { passive: false });
+
+      canvas.addEventListener("touchend", (e) => {
+        e.preventDefault();
+      }, { passive: false });
+    });
+
     window.addEventListener("resize", resizeAllCanvases);
-    resizeAllCanvases();
+    window.addEventListener("orientationchange", () => {
+      setTimeout(resizeAllCanvases, 300);
+    });
+
+    setTimeout(resizeAllCanvases, 300);
 
     document.getElementById("clearCompanySig").addEventListener("click", () => companyPad.clear());
     document.getElementById("clearServiceSig").addEventListener("click", () => servicePad.clear());
