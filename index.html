@@ -87,6 +87,7 @@
 
     input[type="text"],
     input[type="email"],
+    input[type="password"],
     input[type="date"],
     input[type="time"],
     input[type="number"],
@@ -134,6 +135,11 @@
 
     .btn-danger {
       background: #dc2626;
+      color: #fff;
+    }
+
+    .btn-green {
+      background: #166534;
       color: #fff;
     }
 
@@ -221,6 +227,25 @@
       touch-action: none;
     }
 
+    .signature-preview {
+      width: 100%;
+      min-height: 220px;
+      border: 1px dashed #999;
+      border-radius: 8px;
+      background: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      padding: 10px;
+    }
+
+    .signature-preview img {
+      max-width: 100%;
+      max-height: 180px;
+      object-fit: contain;
+    }
+
     .status {
       padding: 12px 14px;
       border-radius: 10px;
@@ -240,6 +265,76 @@
       display: block;
       background: #fee2e2;
       color: #991b1b;
+    }
+
+    .auth-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.65);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      padding: 20px;
+    }
+
+    .auth-box {
+      width: 100%;
+      max-width: 380px;
+      background: #fff;
+      border-radius: 14px;
+      padding: 24px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.25);
+    }
+
+    .auth-box h3 {
+      margin-bottom: 14px;
+    }
+
+    .auth-box .actions {
+      margin-top: 10px;
+    }
+
+    .account-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid #e5e7eb;
+    }
+
+    .account-meta {
+      font-size: 14px;
+      color: #374151;
+    }
+
+    .small-note {
+      font-size: 12px;
+      color: #666;
+      margin-top: 8px;
+    }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9998;
+      padding: 20px;
+    }
+
+    .modal-box {
+      width: 100%;
+      max-width: 700px;
+      background: #fff;
+      border-radius: 14px;
+      padding: 20px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.25);
     }
 
     @media (max-width: 900px) {
@@ -262,8 +357,10 @@
         padding: 14px;
       }
 
-      .sig-pad {
+      .sig-pad,
+      .signature-preview {
         height: 180px;
+        min-height: 180px;
       }
 
       th, td {
@@ -345,6 +442,39 @@
   </style>
 </head>
 <body>
+  <div class="auth-overlay" id="authOverlay">
+    <div class="auth-box">
+      <h3>Kullanıcı Girişi</h3>
+      <div style="margin-bottom:10px;">
+        <label>E-Mail</label>
+        <input type="email" id="loginEmail" placeholder="ornek@mail.com">
+      </div>
+      <div>
+        <label>Şifre</label>
+        <input type="password" id="loginPassword" placeholder="Şifreniz">
+      </div>
+      <div class="actions">
+        <button class="btn-primary" type="button" id="loginBtn">Giriş Yap</button>
+        <button class="btn-secondary" type="button" id="registerBtn">Kayıt Ol</button>
+      </div>
+      <div class="small-note">
+        Kullanıcı bir kere giriş yapar. Servis kullanıcısı imzasını bir kez kaydeder, sonra otomatik gelir.
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="signatureModal">
+    <div class="modal-box">
+      <h3>Servis Kullanıcısı İmzasını Kaydet</h3>
+      <canvas id="userSigPad" class="sig-pad"></canvas>
+      <div class="actions" style="margin-top:12px;">
+        <button class="btn-secondary" type="button" id="clearUserSigBtn">İmzayı Temizle</button>
+        <button class="btn-green" type="button" id="saveUserSigBtn">İmzayı Kaydet</button>
+        <button class="btn-danger" type="button" id="closeUserSigModalBtn">Kapat</button>
+      </div>
+    </div>
+  </div>
+
   <div class="container">
     <div class="card">
       <div class="top-title">
@@ -358,6 +488,17 @@
         <div class="actions">
           <button class="btn-secondary" type="button" id="saveFirmBtn">Firmayı Kaydet</button>
           <button class="btn-secondary" type="button" id="clearFirmBtn">Tüm Firmaları Sil</button>
+        </div>
+      </div>
+
+      <div class="account-bar">
+        <div class="account-meta">
+          <strong>Giriş yapan kullanıcı:</strong>
+          <span id="currentUserText">Yok</span>
+        </div>
+        <div class="actions">
+          <button class="btn-secondary" type="button" id="openSignatureModalBtn">İmzamı Kaydet / Güncelle</button>
+          <button class="btn-danger" type="button" id="logoutBtn">Çıkış Yap</button>
         </div>
       </div>
     </div>
@@ -548,7 +689,7 @@
         <h2>İmzalar</h2>
         <div class="signature-wrap">
           <div class="sig-box">
-            <label>Firma Yetkilisi</label>
+            <label>Müşteri / Firma Yetkilisi İmzası</label>
             <input type="text" id="companyOfficer" name="companyOfficer" placeholder="Ad Soyad">
             <canvas id="companySig" class="sig-pad"></canvas>
             <div class="actions" style="margin-top:10px;">
@@ -557,11 +698,13 @@
           </div>
 
           <div class="sig-box">
-            <label>Servis Yetkilisi İmzası</label>
+            <label>Kayıtlı Servis Kullanıcısı İmzası</label>
             <input type="text" id="serviceOfficerName" name="serviceOfficerName" placeholder="Ad Soyad">
-            <canvas id="serviceSig" class="sig-pad"></canvas>
-            <div class="actions" style="margin-top:10px;">
-              <button type="button" class="btn-secondary" id="clearServiceSig">İmzayı Temizle</button>
+            <div class="signature-preview" id="serviceSignaturePreview">
+              <span style="color:#777;">Henüz kayıtlı imza yok</span>
+            </div>
+            <div class="small-note">
+              Servis kullanıcısı imzası bir kez kaydedilir. Her formda otomatik kullanılır.
             </div>
           </div>
         </div>
@@ -587,6 +730,18 @@
     const SUPABASE_KEY = "sb_publishable_eq4IjDxfBLX18LBXX7Db0g_1jdJPiDV";
     const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+    const authOverlay = document.getElementById("authOverlay");
+    const loginBtn = document.getElementById("loginBtn");
+    const registerBtn = document.getElementById("registerBtn");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const openSignatureModalBtn = document.getElementById("openSignatureModalBtn");
+    const currentUserText = document.getElementById("currentUserText");
+
+    const signatureModal = document.getElementById("signatureModal");
+    const clearUserSigBtn = document.getElementById("clearUserSigBtn");
+    const saveUserSigBtn = document.getElementById("saveUserSigBtn");
+    const closeUserSigModalBtn = document.getElementById("closeUserSigModalBtn");
+
     const materialsTableBody = document.querySelector("#materialsTable tbody");
     const totalMaterialsText = document.getElementById("totalMaterialsText");
     const subTotalText = document.getElementById("subTotalText");
@@ -597,11 +752,14 @@
     const submitBtn = document.getElementById("submitBtn");
 
     const companyCanvas = document.getElementById("companySig");
-    const serviceCanvas = document.getElementById("serviceSig");
+    const userSigCanvas = document.getElementById("userSigPad");
     const companyPad = new SignaturePad(companyCanvas, { minWidth: 1, maxWidth: 2.5, penColor: "#111" });
-    const servicePad = new SignaturePad(serviceCanvas, { minWidth: 1, maxWidth: 2.5, penColor: "#111" });
+    const userSigPad = new SignaturePad(userSigCanvas, { minWidth: 1, maxWidth: 2.5, penColor: "#111" });
+
+    const serviceSignaturePreview = document.getElementById("serviceSignaturePreview");
 
     let firmsCache = [];
+    let currentUser = null;
 
     function showStatus(message, type = "success") {
       statusBox.className = "status " + type;
@@ -629,10 +787,10 @@
 
     function resizeAllCanvases() {
       resizeCanvas(companyCanvas, companyPad);
-      resizeCanvas(serviceCanvas, servicePad);
+      resizeCanvas(userSigCanvas, userSigPad);
     }
 
-    [companyCanvas, serviceCanvas].forEach((canvas) => {
+    [companyCanvas, userSigCanvas].forEach((canvas) => {
       canvas.style.touchAction = "none";
       ["touchstart", "touchmove", "touchend"].forEach((evt) => {
         canvas.addEventListener(evt, (e) => e.preventDefault(), { passive: false });
@@ -644,7 +802,144 @@
     setTimeout(resizeAllCanvases, 300);
 
     document.getElementById("clearCompanySig").addEventListener("click", () => companyPad.clear());
-    document.getElementById("clearServiceSig").addEventListener("click", () => servicePad.clear());
+    clearUserSigBtn.addEventListener("click", () => userSigPad.clear());
+
+    function openSignatureModal() {
+      if (!currentUser) {
+        showStatus("Önce giriş yapmalısın.", "error");
+        return;
+      }
+      signatureModal.style.display = "flex";
+      setTimeout(() => resizeCanvas(userSigCanvas, userSigPad), 100);
+
+      if (currentUser.signature) {
+        userSigPad.clear();
+        const img = new Image();
+        img.src = currentUser.signature;
+        img.onload = () => {
+          const ctx = userSigCanvas.getContext("2d");
+          ctx.clearRect(0, 0, userSigCanvas.width, userSigCanvas.height);
+          ctx.drawImage(img, 0, 0, userSigCanvas.width, userSigCanvas.height);
+        };
+      }
+    }
+
+    function closeSignatureModal() {
+      signatureModal.style.display = "none";
+    }
+
+    function updateServiceSignaturePreview() {
+      if (currentUser && currentUser.signature) {
+        serviceSignaturePreview.innerHTML = `<img src="${currentUser.signature}" alt="Kayıtlı imza">`;
+      } else {
+        serviceSignaturePreview.innerHTML = `<span style="color:#777;">Henüz kayıtlı imza yok</span>`;
+      }
+    }
+
+    function updateCurrentUserUI() {
+      if (currentUser) {
+        currentUserText.textContent = currentUser.email || "Kullanıcı";
+        authOverlay.style.display = "none";
+        document.getElementById("serviceStaffEmail").value = currentUser.email || "";
+      } else {
+        currentUserText.textContent = "Yok";
+        authOverlay.style.display = "flex";
+      }
+      updateServiceSignaturePreview();
+    }
+
+    async function registerUser() {
+      const email = document.getElementById("loginEmail").value.trim();
+      const password = document.getElementById("loginPassword").value.trim();
+
+      if (!email || !password) {
+        alert("Email ve şifre gir.");
+        return;
+      }
+
+      const { error } = await supabase
+        .from("users")
+        .insert([{ email, password }]);
+
+      if (error) {
+        alert("Kayıt hatası: " + error.message);
+        return;
+      }
+
+      alert("Kayıt başarılı. Şimdi giriş yap.");
+    }
+
+    async function loginUser() {
+      const email = document.getElementById("loginEmail").value.trim();
+      const password = document.getElementById("loginPassword").value.trim();
+
+      if (!email || !password) {
+        alert("Email ve şifre gir.");
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("users")
+        .select("*")
+        .eq("email", email)
+        .eq("password", password)
+        .single();
+
+      if (error || !data) {
+        alert("Giriş başarısız.");
+        return;
+      }
+
+      currentUser = data;
+      localStorage.setItem("mono_cnc_current_user", JSON.stringify(data));
+      updateCurrentUserUI();
+      alert("Giriş başarılı.");
+    }
+
+    function logoutUser() {
+      currentUser = null;
+      localStorage.removeItem("mono_cnc_current_user");
+      updateCurrentUserUI();
+      companyPad.clear();
+      alert("Çıkış yapıldı.");
+    }
+
+    async function saveUserSignature() {
+      if (!currentUser) {
+        alert("Önce giriş yap.");
+        return;
+      }
+
+      if (userSigPad.isEmpty()) {
+        alert("Önce imza at.");
+        return;
+      }
+
+      const signature = userSigPad.toDataURL("image/png");
+
+      const { error } = await supabase
+        .from("users")
+        .update({ signature })
+        .eq("id", currentUser.id);
+
+      if (error) {
+        alert("İmza kaydedilemedi: " + error.message);
+        return;
+      }
+
+      currentUser.signature = signature;
+      localStorage.setItem("mono_cnc_current_user", JSON.stringify(currentUser));
+      updateServiceSignaturePreview();
+      closeSignatureModal();
+      alert("İmza kaydedildi.");
+    }
+
+    loginBtn.addEventListener("click", loginUser);
+    registerBtn.addEventListener("click", registerUser);
+    logoutBtn.addEventListener("click", logoutUser);
+    openSignatureModalBtn.addEventListener("click", openSignatureModal);
+    closeUserSigModalBtn.addEventListener("click", closeSignatureModal);
+    saveUserSigBtn.addEventListener("click", saveUserSignature);
 
     function addMaterialRow(material = {}) {
       const tr = document.createElement("tr");
@@ -850,7 +1145,7 @@
         companyOfficer: document.getElementById("companyOfficer").value,
         serviceOfficerName: document.getElementById("serviceOfficerName").value,
         companySignature: companyPad.isEmpty() ? "" : companyPad.toDataURL("image/png"),
-        serviceSignature: servicePad.isEmpty() ? "" : servicePad.toDataURL("image/png")
+        serviceSignature: currentUser && currentUser.signature ? currentUser.signature : ""
       };
     }
 
@@ -869,8 +1164,18 @@
 
         const payload = buildPayload();
 
+        if (!currentUser) {
+          showStatus("Önce kullanıcı girişi yapmalısın.", "error");
+          return;
+        }
+
         if (!payload.companyName.trim()) {
           showStatus("Firma ünvanı zorunlu.", "error");
+          return;
+        }
+
+        if (!payload.serviceSignature) {
+          showStatus("Önce servis kullanıcısı imzasını kaydetmelisin.", "error");
           return;
         }
 
@@ -913,9 +1218,27 @@
       }
     });
 
+    function restoreUserFromLocal() {
+      const raw = localStorage.getItem("mono_cnc_current_user");
+      if (!raw) {
+        currentUser = null;
+        updateCurrentUserUI();
+        return;
+      }
+
+      try {
+        currentUser = JSON.parse(raw);
+      } catch (_) {
+        currentUser = null;
+      }
+
+      updateCurrentUserUI();
+    }
+
     addMaterialRow();
     loadFirms();
     calculateTotals();
+    restoreUserFromLocal();
   </script>
 </body>
 </html>
