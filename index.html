@@ -380,19 +380,25 @@
     }
 
     @media (max-width: 768px) {
-      #materialsTable thead {
+      #materialsTable thead,
+      #workDaysTable thead {
         display: none;
       }
 
       #materialsTable,
       #materialsTable tbody,
       #materialsTable tr,
-      #materialsTable td {
+      #materialsTable td,
+      #workDaysTable,
+      #workDaysTable tbody,
+      #workDaysTable tr,
+      #workDaysTable td {
         display: block;
         width: 100%;
       }
 
-      #materialsTable tr {
+      #materialsTable tr,
+      #workDaysTable tr {
         margin-bottom: 12px;
         border: 1px solid #ddd;
         border-radius: 10px;
@@ -400,12 +406,14 @@
         background: #fff;
       }
 
-      #materialsTable td {
+      #materialsTable td,
+      #workDaysTable td {
         border: none;
         padding: 6px 0;
       }
 
-      #materialsTable td::before {
+      #materialsTable td::before,
+      #workDaysTable td::before {
         font-weight: bold;
         display: block;
         margin-bottom: 4px;
@@ -421,7 +429,14 @@
       #materialsTable td:nth-child(6)::before { content: "Toplam"; }
       #materialsTable td:nth-child(7)::before { content: "Sil"; }
 
-      #materialsTable input {
+      #workDaysTable td:nth-child(1)::before { content: "Tarih"; }
+      #workDaysTable td:nth-child(2)::before { content: "Başlangıç"; }
+      #workDaysTable td:nth-child(3)::before { content: "Bitiş"; }
+      #workDaysTable td:nth-child(4)::before { content: "Günlük Süre"; }
+      #workDaysTable td:nth-child(5)::before { content: "Sil"; }
+
+      #materialsTable input,
+      #workDaysTable input {
         width: 100%;
       }
 
@@ -555,11 +570,11 @@
         <div class="grid grid-4">
           <div>
             <label>Başlama Tarihi</label>
-            <input type="date" id="startDate" name="startDate">
+            <input type="date" id="startDate" name="startDate" readonly>
           </div>
           <div>
             <label>Bitiş Tarihi</label>
-            <input type="date" id="endDate" name="endDate">
+            <input type="date" id="endDate" name="endDate" readonly>
           </div>
           <div>
             <label>Servis Yetkilisi</label>
@@ -607,6 +622,49 @@
         <div style="margin-top:18px;">
           <label>Yapılan İşler</label>
           <textarea id="workDone" name="workDone"></textarea>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="actions" style="justify-content: space-between; align-items:center;">
+          <h2 style="margin:0;">Çalışma Günleri</h2>
+          <button type="button" class="btn-secondary" id="addWorkDayBtn">+ Gün Ekle</button>
+        </div>
+
+        <div class="grid grid-4" style="margin-top:14px;">
+          <div>
+            <label>Başlama Tarihi</label>
+            <input type="date" id="workStartDateAuto" readonly>
+          </div>
+          <div>
+            <label>Bitiş Tarihi</label>
+            <input type="date" id="workEndDateAuto" readonly>
+          </div>
+          <div>
+            <label>Ulaşım Süresi (saat)</label>
+            <input type="number" step="0.01" id="travelHours" name="travelHours" value="0">
+          </div>
+          <div>
+            <label>Toplam Çalışma Süresi (saat)</label>
+            <input type="number" step="0.01" id="workHours" name="workHours" value="0" readonly>
+          </div>
+        </div>
+
+        <table id="workDaysTable" style="margin-top:16px;">
+          <thead>
+            <tr>
+              <th>Tarih</th>
+              <th>Başlangıç</th>
+              <th>Bitiş</th>
+              <th>Günlük Süre</th>
+              <th class="table-actions">Sil</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+
+        <div class="small-note">
+          En fazla 6 gün eklenebilir. Başlama ve bitiş tarihi otomatik dolar.
         </div>
       </div>
 
@@ -659,28 +717,6 @@
           <div class="row">
             <span>Genel Toplam</span>
             <strong id="grandTotalText">0.00 ₺</strong>
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2>Süre Bilgileri</h2>
-        <div class="grid grid-4">
-          <div>
-            <label>Ulaşım Süresi (saat)</label>
-            <input type="number" step="0.01" id="travelHours" name="travelHours" value="0">
-          </div>
-          <div>
-            <label>Çalışma Başlangıç</label>
-            <input type="time" id="workStartTime" name="workStartTime">
-          </div>
-          <div>
-            <label>Çalışma Bitiş</label>
-            <input type="time" id="workEndTime" name="workEndTime">
-          </div>
-          <div>
-            <label>Çalışma Süresi (saat)</label>
-            <input type="number" step="0.01" id="workHours" name="workHours" value="0">
           </div>
         </div>
       </div>
@@ -743,6 +779,9 @@
     const closeUserSigModalBtn = document.getElementById("closeUserSigModalBtn");
 
     const materialsTableBody = document.querySelector("#materialsTable tbody");
+    const workDaysTableBody = document.querySelector("#workDaysTable tbody");
+    const addWorkDayBtn = document.getElementById("addWorkDayBtn");
+
     const totalMaterialsText = document.getElementById("totalMaterialsText");
     const subTotalText = document.getElementById("subTotalText");
     const vatText = document.getElementById("vatText");
@@ -966,7 +1005,95 @@
       calculateTotals();
     }
 
+    function timeToMinutes(time) {
+      if (!time) return 0;
+      const [h, m] = time.split(":").map(Number);
+      return (h * 60) + m;
+    }
+
+    function minutesToHours(minutes) {
+      return (minutes / 60).toFixed(2);
+    }
+
+    function calculateWorkDays() {
+      let totalMinutes = 0;
+      let dates = [];
+
+      document.querySelectorAll("#workDaysTable tbody tr").forEach(row => {
+        const date = row.querySelector(".work-date").value;
+        const start = row.querySelector(".work-start").value;
+        const end = row.querySelector(".work-end").value;
+        const totalInput = row.querySelector(".work-total");
+
+        let dailyMinutes = 0;
+
+        if (start && end) {
+          const startMin = timeToMinutes(start);
+          const endMin = timeToMinutes(end);
+
+          if (endMin > startMin) {
+            dailyMinutes = endMin - startMin;
+          }
+        }
+
+        totalInput.value = minutesToHours(dailyMinutes);
+        totalMinutes += dailyMinutes;
+
+        if (date) dates.push(date);
+      });
+
+      document.getElementById("workHours").value = minutesToHours(totalMinutes);
+
+      if (dates.length > 0) {
+        dates.sort();
+        const firstDate = dates[0];
+        const lastDate = dates[dates.length - 1];
+
+        document.getElementById("startDate").value = firstDate;
+        document.getElementById("endDate").value = lastDate;
+        document.getElementById("workStartDateAuto").value = firstDate;
+        document.getElementById("workEndDateAuto").value = lastDate;
+      } else {
+        document.getElementById("startDate").value = "";
+        document.getElementById("endDate").value = "";
+        document.getElementById("workStartDateAuto").value = "";
+        document.getElementById("workEndDateAuto").value = "";
+      }
+    }
+
+    function addWorkDayRow(day = {}) {
+      const currentRows = document.querySelectorAll("#workDaysTable tbody tr").length;
+      if (currentRows >= 6) {
+        showStatus("En fazla 6 gün ekleyebilirsin.", "error");
+        return;
+      }
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><input type="date" class="work-date" value="${day.date || ""}"></td>
+        <td><input type="time" class="work-start" value="${day.start || ""}"></td>
+        <td><input type="time" class="work-end" value="${day.end || ""}"></td>
+        <td><input type="number" step="0.01" class="work-total" value="${day.total || 0}" readonly></td>
+        <td class="table-actions"><button type="button" class="btn-danger remove-workday">Sil</button></td>
+      `;
+
+      workDaysTableBody.appendChild(tr);
+
+      tr.querySelectorAll("input").forEach(input => {
+        input.addEventListener("input", calculateWorkDays);
+        input.addEventListener("change", calculateWorkDays);
+      });
+
+      tr.querySelector(".remove-workday").addEventListener("click", () => {
+        tr.remove();
+        calculateWorkDays();
+      });
+
+      calculateWorkDays();
+    }
+
     document.getElementById("addMaterialBtn").addEventListener("click", () => addMaterialRow());
+    addWorkDayBtn.addEventListener("click", () => addWorkDayRow());
 
     function calculateTotals() {
       let totalMaterials = 0;
@@ -1113,6 +1240,16 @@
       const vat = parseFloat(vatText.textContent.replace(" ₺", "")) || 0;
       const grandTotal = parseFloat(grandTotalText.textContent.replace(" ₺", "")) || 0;
 
+      const workDays = [...document.querySelectorAll("#workDaysTable tbody tr")].map(row => ({
+        date: row.querySelector(".work-date").value,
+        start: row.querySelector(".work-start").value,
+        end: row.querySelector(".work-end").value,
+        total: Number(row.querySelector(".work-total").value || 0)
+      })).filter(day => day.date);
+
+      const firstDay = workDays[0] || {};
+      const lastDay = workDays[workDays.length - 1] || {};
+
       return {
         companyName: document.getElementById("companyName").value,
         companyAddress: document.getElementById("companyAddress").value,
@@ -1139,9 +1276,10 @@
         vat,
         grandTotal,
         travelHours: Number(document.getElementById("travelHours").value || 0),
-        workStartTime: document.getElementById("workStartTime").value,
-        workEndTime: document.getElementById("workEndTime").value,
+        workStartTime: firstDay.start || "",
+        workEndTime: lastDay.end || "",
         workHours: Number(document.getElementById("workHours").value || 0),
+        workDays,
         companyOfficer: document.getElementById("companyOfficer").value,
         serviceOfficerName: document.getElementById("serviceOfficerName").value,
         companySignature: companyPad.isEmpty() ? "" : companyPad.toDataURL("image/png"),
@@ -1161,6 +1299,7 @@
 
       try {
         calculateTotals();
+        calculateWorkDays();
 
         const payload = buildPayload();
 
@@ -1236,8 +1375,10 @@
     }
 
     addMaterialRow();
+    addWorkDayRow();
     loadFirms();
     calculateTotals();
+    calculateWorkDays();
     restoreUserFromLocal();
   </script>
 </body>
