@@ -430,10 +430,13 @@
       #materialsTable td:nth-child(7)::before { content: "Sil"; }
 
       #workDaysTable td:nth-child(1)::before { content: "Tarih"; }
-      #workDaysTable td:nth-child(2)::before { content: "Başlangıç"; }
-      #workDaysTable td:nth-child(3)::before { content: "Bitiş"; }
-      #workDaysTable td:nth-child(4)::before { content: "Günlük Süre"; }
-      #workDaysTable td:nth-child(5)::before { content: "Sil"; }
+      #workDaysTable td:nth-child(2)::before { content: "Ulaşım Süresi"; }
+      #workDaysTable td:nth-child(3)::before { content: "Başlangıç"; }
+      #workDaysTable td:nth-child(4)::before { content: "Bitiş"; }
+      #workDaysTable td:nth-child(5)::before { content: "Mesai İçi"; }
+      #workDaysTable td:nth-child(6)::before { content: "Mesai Dışı"; }
+      #workDaysTable td:nth-child(7)::before { content: "Toplam"; }
+      #workDaysTable td:nth-child(8)::before { content: "Sil"; }
 
       #materialsTable input,
       #workDaysTable input {
@@ -646,9 +649,12 @@
           <thead>
             <tr>
               <th>Tarih</th>
+              <th>Ulaşım Süresi</th>
               <th>Başlangıç</th>
               <th>Bitiş</th>
-              <th>Günlük Süre</th>
+              <th>Mesai İçi</th>
+              <th>Mesai Dışı</th>
+              <th>Toplam</th>
               <th class="table-actions">Sil</th>
             </tr>
           </thead>
@@ -727,9 +733,13 @@
         <h2>İmzalar</h2>
         <div class="signature-wrap">
           <div class="sig-box">
-            <label>Müşteri / Firma Yetkilisi İmzası</label>
+            <label>Firma Yetkilisi</label>
             <input type="text" id="companyOfficer" name="companyOfficer" placeholder="Ad Soyad">
-            <canvas id="companySig" class="sig-pad"></canvas>
+            <div style="margin-top:10px;">
+              <label>Firma Yetkilisi Mail</label>
+              <input type="email" id="companyOfficerEmail" name="companyOfficerEmail" placeholder="firma@mail.com">
+            </div>
+            <canvas id="companySig" class="sig-pad" style="margin-top:10px;"></canvas>
             <div class="actions" style="margin-top:10px;">
               <button type="button" class="btn-secondary" id="clearCompanySig">İmzayı Temizle</button>
             </div>
@@ -1024,22 +1034,10 @@
 
     function calculateWorkDayRowsOnly() {
       document.querySelectorAll("#workDaysTable tbody tr").forEach(row => {
-        const start = row.querySelector(".work-start").value;
-        const end = row.querySelector(".work-end").value;
+        const mesaiIci = Number(row.querySelector(".work-inside").value || 0);
+        const mesaiDisi = Number(row.querySelector(".work-outside").value || 0);
         const totalInput = row.querySelector(".work-total");
-
-        let dailyMinutes = 0;
-
-        if (start && end) {
-          const startMin = timeToMinutes(start);
-          const endMin = timeToMinutes(end);
-
-          if (endMin > startMin) {
-            dailyMinutes = endMin - startMin;
-          }
-        }
-
-        totalInput.value = minutesToHours(dailyMinutes);
+        totalInput.value = (mesaiIci + mesaiDisi).toFixed(2);
       });
     }
 
@@ -1077,8 +1075,11 @@
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td><input type="date" class="work-date" value="${day.date || ""}"></td>
+        <td><input type="number" step="0.01" class="work-travel" value="${day.travel || 0}"></td>
         <td><input type="time" class="work-start" value="${day.start || ""}"></td>
         <td><input type="time" class="work-end" value="${day.end || ""}"></td>
+        <td><input type="number" step="0.01" class="work-inside" value="${day.inside || 0}"></td>
+        <td><input type="number" step="0.01" class="work-outside" value="${day.outside || 0}"></td>
         <td><input type="number" step="0.01" class="work-total" value="${day.total || 0}" readonly></td>
         <td class="table-actions"><button type="button" class="btn-danger remove-workday">Sil</button></td>
       `;
@@ -1258,8 +1259,11 @@
 
       const workDays = [...document.querySelectorAll("#workDaysTable tbody tr")].map(row => ({
         date: row.querySelector(".work-date").value,
+        travel: Number(row.querySelector(".work-travel").value || 0),
         start: row.querySelector(".work-start").value,
         end: row.querySelector(".work-end").value,
+        inside: Number(row.querySelector(".work-inside").value || 0),
+        outside: Number(row.querySelector(".work-outside").value || 0),
         total: Number(row.querySelector(".work-total").value || 0)
       })).filter(day => day.date);
 
@@ -1298,6 +1302,7 @@
         workHours: Number(document.getElementById("workHours").value || 0),
         workDays,
         companyOfficer: document.getElementById("companyOfficer").value,
+        companyOfficerEmail: document.getElementById("companyOfficerEmail").value,
         serviceOfficerName: document.getElementById("serviceOfficerName").value,
         companySignature: companyPad.isEmpty() ? "" : companyPad.toDataURL("image/png"),
         serviceSignature: currentUser && currentUser.signature ? currentUser.signature : ""
