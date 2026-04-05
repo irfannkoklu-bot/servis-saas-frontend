@@ -567,15 +567,7 @@
       <div class="card">
         <h2>Servis Bilgileri</h2>
 
-        <div class="grid grid-4">
-          <div>
-            <label>Başlama Tarihi</label>
-            <input type="date" id="startDate" name="startDate" readonly>
-          </div>
-          <div>
-            <label>Bitiş Tarihi</label>
-            <input type="date" id="endDate" name="endDate" readonly>
-          </div>
+        <div class="grid grid-2">
           <div>
             <label>Servis Yetkilisi</label>
             <input type="text" id="serviceStaff" name="serviceStaff" value="Anıl Demiral">
@@ -634,11 +626,11 @@
         <div class="grid grid-4" style="margin-top:14px;">
           <div>
             <label>Başlama Tarihi</label>
-            <input type="date" id="workStartDateAuto" readonly>
+            <input type="date" id="startDate" name="startDate">
           </div>
           <div>
             <label>Bitiş Tarihi</label>
-            <input type="date" id="workEndDateAuto" readonly>
+            <input type="date" id="endDate" name="endDate">
           </div>
           <div>
             <label>Ulaşım Süresi (saat)</label>
@@ -646,7 +638,7 @@
           </div>
           <div>
             <label>Toplam Çalışma Süresi (saat)</label>
-            <input type="number" step="0.01" id="workHours" name="workHours" value="0" readonly>
+            <input type="number" step="0.01" id="workHours" name="workHours" value="0">
           </div>
         </div>
 
@@ -664,7 +656,7 @@
         </table>
 
         <div class="small-note">
-          En fazla 6 gün eklenebilir. Başlama ve bitiş tarihi otomatik dolar.
+          En fazla 6 gün eklenebilir.
         </div>
       </div>
 
@@ -672,6 +664,16 @@
         <div class="actions" style="justify-content: space-between;">
           <h2 style="margin:0;">Kullanılan Malzemeler</h2>
           <button class="btn-secondary" type="button" id="addMaterialBtn">+ Malzeme Ekle</button>
+        </div>
+
+        <div class="totals" style="max-width:100%; margin-top:14px; margin-bottom:8px;">
+          <div class="row">
+            <span>Para Birimi</span>
+            <select id="currencySelect" style="max-width:220px;">
+              <option value="TL">TL</option>
+              <option value="USD">USD</option>
+            </select>
+          </div>
         </div>
 
         <table id="materialsTable">
@@ -781,6 +783,7 @@
     const materialsTableBody = document.querySelector("#materialsTable tbody");
     const workDaysTableBody = document.querySelector("#workDaysTable tbody");
     const addWorkDayBtn = document.getElementById("addWorkDayBtn");
+    const currencySelect = document.getElementById("currencySelect");
 
     const totalMaterialsText = document.getElementById("totalMaterialsText");
     const subTotalText = document.getElementById("subTotalText");
@@ -800,13 +803,17 @@
     let firmsCache = [];
     let currentUser = null;
 
+    function getCurrencySymbol() {
+      return currencySelect.value === "USD" ? "$" : "₺";
+    }
+
     function showStatus(message, type = "success") {
       statusBox.className = "status " + type;
       statusBox.textContent = message;
     }
 
     function formatMoney(value) {
-      return Number(value || 0).toFixed(2) + " ₺";
+      return `${Number(value || 0).toFixed(2)} ${getCurrencySymbol()}`;
     }
 
     function resizeCanvas(canvas, pad) {
@@ -1015,12 +1022,8 @@
       return (minutes / 60).toFixed(2);
     }
 
-    function calculateWorkDays() {
-      let totalMinutes = 0;
-      let dates = [];
-
+    function calculateWorkDayRowsOnly() {
       document.querySelectorAll("#workDaysTable tbody tr").forEach(row => {
-        const date = row.querySelector(".work-date").value;
         const start = row.querySelector(".work-start").value;
         const end = row.querySelector(".work-end").value;
         const totalInput = row.querySelector(".work-total");
@@ -1037,28 +1040,31 @@
         }
 
         totalInput.value = minutesToHours(dailyMinutes);
-        totalMinutes += dailyMinutes;
-
-        if (date) dates.push(date);
       });
+    }
 
-      document.getElementById("workHours").value = minutesToHours(totalMinutes);
+    function validateDateRange() {
+      const startDate = document.getElementById("startDate").value;
+      const endDate = document.getElementById("endDate").value;
 
-      if (dates.length > 0) {
-        dates.sort();
-        const firstDate = dates[0];
-        const lastDate = dates[dates.length - 1];
+      if (!startDate || !endDate) return true;
 
-        document.getElementById("startDate").value = firstDate;
-        document.getElementById("endDate").value = lastDate;
-        document.getElementById("workStartDateAuto").value = firstDate;
-        document.getElementById("workEndDateAuto").value = lastDate;
-      } else {
-        document.getElementById("startDate").value = "";
-        document.getElementById("endDate").value = "";
-        document.getElementById("workStartDateAuto").value = "";
-        document.getElementById("workEndDateAuto").value = "";
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const diffMs = end - start;
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1;
+
+      if (diffDays < 1) {
+        showStatus("Bitiş tarihi, başlama tarihinden önce olamaz.", "error");
+        return false;
       }
+
+      if (diffDays > 6) {
+        showStatus("Başlama ve bitiş tarihi aralığı en fazla 6 gün olabilir.", "error");
+        return false;
+      }
+
+      return true;
     }
 
     function addWorkDayRow(day = {}) {
@@ -1080,20 +1086,24 @@
       workDaysTableBody.appendChild(tr);
 
       tr.querySelectorAll("input").forEach(input => {
-        input.addEventListener("input", calculateWorkDays);
-        input.addEventListener("change", calculateWorkDays);
+        input.addEventListener("input", calculateWorkDayRowsOnly);
+        input.addEventListener("change", calculateWorkDayRowsOnly);
       });
 
       tr.querySelector(".remove-workday").addEventListener("click", () => {
         tr.remove();
-        calculateWorkDays();
+        calculateWorkDayRowsOnly();
       });
 
-      calculateWorkDays();
+      calculateWorkDayRowsOnly();
     }
 
     document.getElementById("addMaterialBtn").addEventListener("click", () => addMaterialRow());
     addWorkDayBtn.addEventListener("click", () => addWorkDayRow());
+    currencySelect.addEventListener("change", calculateTotals);
+
+    document.getElementById("startDate").addEventListener("change", validateDateRange);
+    document.getElementById("endDate").addEventListener("change", validateDateRange);
 
     function calculateTotals() {
       let totalMaterials = 0;
@@ -1157,7 +1167,10 @@
         tax_office: document.getElementById("taxOffice").value.trim(),
         tax_number: document.getElementById("taxNumber").value.trim(),
         customer_email: document.getElementById("customerEmail").value.trim(),
-        customer_code: document.getElementById("customerCode").value.trim()
+        customer_code: document.getElementById("customerCode").value.trim(),
+        machine_model: document.getElementById("machineModel").value.trim(),
+        machine_serial: document.getElementById("machineSerial").value.trim(),
+        control_model: document.getElementById("controlModel").value.trim()
       };
     }
 
@@ -1186,7 +1199,7 @@
       }
 
       await loadFirms();
-      showStatus("Firma kaydedildi.");
+      showStatus("Firma ve makine bilgileri kaydedildi.");
     });
 
     document.getElementById("clearFirmBtn").addEventListener("click", async () => {
@@ -1217,6 +1230,9 @@
       document.getElementById("taxNumber").value = selected.tax_number || "";
       document.getElementById("customerEmail").value = selected.customer_email || "";
       document.getElementById("customerCode").value = selected.customer_code || "";
+      document.getElementById("machineModel").value = selected.machine_model || "";
+      document.getElementById("machineSerial").value = selected.machine_serial || "";
+      document.getElementById("controlModel").value = selected.control_model || "";
     });
 
     function getCheckedValues(name) {
@@ -1235,10 +1251,10 @@
     }
 
     function buildPayload() {
-      const totalMaterials = parseFloat(totalMaterialsText.textContent.replace(" ₺", "")) || 0;
-      const subTotal = parseFloat(subTotalText.textContent.replace(" ₺", "")) || 0;
-      const vat = parseFloat(vatText.textContent.replace(" ₺", "")) || 0;
-      const grandTotal = parseFloat(grandTotalText.textContent.replace(" ₺", "")) || 0;
+      const totalMaterials = parseFloat(totalMaterialsText.textContent.replace(" ₺", "").replace(" $", "")) || 0;
+      const subTotal = parseFloat(subTotalText.textContent.replace(" ₺", "").replace(" $", "")) || 0;
+      const vat = parseFloat(vatText.textContent.replace(" ₺", "").replace(" $", "")) || 0;
+      const grandTotal = parseFloat(grandTotalText.textContent.replace(" ₺", "").replace(" $", "")) || 0;
 
       const workDays = [...document.querySelectorAll("#workDaysTable tbody tr")].map(row => ({
         date: row.querySelector(".work-date").value,
@@ -1251,6 +1267,7 @@
       const lastDay = workDays[workDays.length - 1] || {};
 
       return {
+        currency: currencySelect.value,
         companyName: document.getElementById("companyName").value,
         companyAddress: document.getElementById("companyAddress").value,
         taxOffice: document.getElementById("taxOffice").value,
@@ -1299,9 +1316,13 @@
 
       try {
         calculateTotals();
-        calculateWorkDays();
+        calculateWorkDayRowsOnly();
 
         const payload = buildPayload();
+
+        if (!validateDateRange()) {
+          return;
+        }
 
         if (!currentUser) {
           showStatus("Önce kullanıcı girişi yapmalısın.", "error");
@@ -1378,7 +1399,7 @@
     addWorkDayRow();
     loadFirms();
     calculateTotals();
-    calculateWorkDays();
+    calculateWorkDayRowsOnly();
     restoreUserFromLocal();
   </script>
 </body>
